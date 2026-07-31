@@ -39,6 +39,13 @@ export const useSounds = () => {
     return audioContextRef.current;
   }, []);
 
+  /** Sync path when already running — no microtask delay on hover. */
+  const getRunningContext = useCallback(() => {
+    const ctx = audioContextRef.current;
+    if (ctx?.state === "running") return ctx;
+    return null;
+  }, []);
+
   const resumeContext = useCallback(async () => {
     const ctx = ensureContext();
     if (!ctx) return null;
@@ -50,7 +57,7 @@ export const useSounds = () => {
       }
     }
     unlockedRef.current = ctx.state === "running";
-    return ctx;
+    return ctx.state === "running" ? ctx : null;
   }, [ensureContext]);
 
   useEffect(() => {
@@ -60,19 +67,15 @@ export const useSounds = () => {
     let cancelled = false;
 
     const loadSound = async () => {
-      const press = await fetchAudioBuffer(
-        ctx,
-        "/assets/keycap-sounds/press.mp3"
-      );
-      const release = await fetchAudioBuffer(
-        ctx,
-        "/assets/keycap-sounds/release.mp3"
-      );
+      // Load press/release first in parallel so hover is ready ASAP.
+      const [press, release] = await Promise.all([
+        fetchAudioBuffer(ctx, "/assets/keycap-sounds/press.mp3"),
+        fetchAudioBuffer(ctx, "/assets/keycap-sounds/release.mp3"),
+      ]);
       if (cancelled) return;
       pressBufferRef.current = press;
       releaseBufferRef.current = release;
 
-      // Optional — must not block keycap sounds if missing
       const confetti = await fetchAudioBuffer(
         ctx,
         "/assets/sounds/vine-boom.mp3"
@@ -83,9 +86,21 @@ export const useSounds = () => {
     loadSound();
 
     // Browsers keep AudioContext suspended until a real user gesture.
-    // Spline hover alone often does not unlock audio — pointer/key does.
+    // Unlock early so Spline hover can play synchronously afterward.
     const unlock = () => {
-      void resumeContext();
+      void resumeContext().then((running) => {
+        if (!running) return;
+        // Warm the audio graph so the first keycap hit isn't cold-start laggy.
+        try {
+          const silent = running.createBuffer(1, 1, running.sampleRate);
+          const source = running.createBufferSource();
+          source.buffer = silent;
+          source.connect(running.destination);
+          source.start(0);
+        } catch {
+          /* ignore */
+        }
+      });
     };
     window.addEventListener("pointerdown", unlock, { capture: true });
     window.addEventListener("keydown", unlock, { capture: true });
@@ -103,65 +118,74 @@ export const useSounds = () => {
 
   const playTone = useCallback(
     (startFreq: number, endFreq: number, duration: number, vol: number) => {
-      void (async () => {
-        try {
-          const ctx = await resumeContext();
-          if (!ctx) return;
-          const oscillator = ctx.createOscillator();
-          const gainNode = ctx.createGain();
+      const start = (ctx: AudioContext) => {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
 
-          oscillator.type = "sine";
-          const startTime = ctx.currentTime;
+        oscillator.type = "sine";
+        const startTime = ctx.currentTime;
 
-          oscillator.frequency.setValueAtTime(startFreq, startTime);
-          oscillator.frequency.exponentialRampToValueAtTime(
-            endFreq,
-            startTime + duration
-          );
+        oscillator.frequency.setValueAtTime(startFreq, startTime);
+        oscillator.frequency.exponentialRampToValueAtTime(
+          endFreq,
+          startTime + duration
+        );
 
-          gainNode.gain.setValueAtTime(0, startTime);
-          gainNode.gain.linearRampToValueAtTime(vol, startTime + 0.01);
-          gainNode.gain.exponentialRampToValueAtTime(
-            0.001,
-            startTime + duration
-          );
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(vol, startTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.001,
+          startTime + duration
+        );
 
-          oscillator.connect(gainNode);
-          gainNode.connect(ctx.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
-          oscillator.start(startTime);
-          oscillator.stop(startTime + duration);
-        } catch (error) {
-          console.error("Failed to play notification sound", error);
-        }
-      })();
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+      };
+
+      const running = getRunningContext();
+      if (running) {
+        start(running);
+        return;
+      }
+      void resumeContext().then((ctx) => {
+        if (ctx) start(ctx);
+      });
     },
-    [resumeContext]
+    [getRunningContext, resumeContext]
   );
 
   const playSoundBuffer = useCallback(
     (buffer: AudioBuffer | null, baseDetune = 0) => {
-      void (async () => {
-        try {
-          const ctx = await resumeContext();
-          if (!ctx || !buffer) return;
+      if (!buffer) return;
 
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.detune.value = baseDetune + Math.random() * 200 - 100;
+      const start = (ctx: AudioContext) => {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.detune.value = baseDetune + Math.random() * 200 - 100;
 
-          const gainNode = ctx.createGain();
-          gainNode.gain.value = 0.4;
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 0.4;
 
-          source.connect(gainNode);
-          gainNode.connect(ctx.destination);
-          source.start(0);
-        } catch (err) {
-          console.error(err);
-        }
-      })();
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+      };
+
+      // Fast path: already unlocked — play on this tick (no await lag on hover).
+      const running = getRunningContext();
+      if (running) {
+        start(running);
+        return;
+      }
+
+      void resumeContext().then((ctx) => {
+        if (ctx) start(ctx);
+      });
     },
-    [resumeContext]
+    [getRunningContext, resumeContext]
   );
 
   const playPressSound = useCallback(() => {
@@ -182,58 +206,67 @@ export const useSounds = () => {
 
   const playConfettiSound = useCallback(
     (intensity: number = 0.5) => {
-      void (async () => {
-        try {
-          const ctx = await resumeContext();
-          const buffer = confettiBufferRef.current;
-          if (!ctx || !buffer) return;
+      const buffer = confettiBufferRef.current;
+      if (!buffer) return;
 
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.playbackRate.value = 1.2 - intensity * 0.4;
-          source.detune.value = Math.random() * 100 - 50;
+      const start = (ctx: AudioContext) => {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.value = 1.2 - intensity * 0.4;
+        source.detune.value = Math.random() * 100 - 50;
 
-          const gainNode = ctx.createGain();
-          gainNode.gain.value = 0.15 + intensity * 0.5;
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 0.15 + intensity * 0.5;
 
-          source.connect(gainNode);
-          gainNode.connect(ctx.destination);
-          source.start(0);
-        } catch (err) {
-          console.error(err);
-        }
-      })();
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+      };
+
+      const running = getRunningContext();
+      if (running) {
+        start(running);
+        return;
+      }
+      void resumeContext().then((ctx) => {
+        if (ctx) start(ctx);
+      });
     },
-    [resumeContext]
+    [getRunningContext, resumeContext]
   );
 
   const chargeOscRef = useRef<OscillatorNode | null>(null);
   const chargeGainRef = useRef<GainNode | null>(null);
 
   const startChargeTone = useCallback(() => {
-    void (async () => {
-      try {
-        const ctx = await resumeContext();
-        if (!ctx || chargeOscRef.current) return;
+    if (chargeOscRef.current) return;
 
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.value = 200;
+    const start = (ctx: AudioContext) => {
+      if (chargeOscRef.current) return;
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 200;
 
-        const gain = ctx.createGain();
-        gain.gain.value = 0;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
 
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
 
-        chargeOscRef.current = osc;
-        chargeGainRef.current = gain;
-      } catch (err) {
-        console.error(err);
-      }
-    })();
-  }, [resumeContext]);
+      chargeOscRef.current = osc;
+      chargeGainRef.current = gain;
+    };
+
+    const running = getRunningContext();
+    if (running) {
+      start(running);
+      return;
+    }
+    void resumeContext().then((ctx) => {
+      if (ctx) start(ctx);
+    });
+  }, [getRunningContext, resumeContext]);
 
   const updateChargeTone = useCallback((intensity: number) => {
     const osc = chargeOscRef.current;

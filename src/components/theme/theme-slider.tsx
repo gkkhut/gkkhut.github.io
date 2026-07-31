@@ -15,7 +15,8 @@ export default function ThemeSlider({ className }: { className?: string }) {
     setMounted(true);
   }, []);
 
-  const isDark = mounted ? resolvedTheme === "dark" : false;
+  // Default dark before mount to match ThemeProvider defaultTheme / html class.
+  const isDark = mounted ? resolvedTheme === "dark" : true;
 
   const applyTheme = async (next: "light" | "dark", event?: React.MouseEvent) => {
     // @ts-expect-error view transitions are not in all TS DOM libs
