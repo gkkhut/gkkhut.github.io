@@ -13,21 +13,21 @@
     margin: 0px;
     display: flex;
     overflow: hidden;
-    font-size: 32px;
-    padding-right: 30px;
-    padding-top: 10px;
+    font-size: 26px;
+    padding-right: 24px;
+    padding-top: 8px;
     font-weight: 800;
   }
 }
 
 @media only screen and (min-width: 1000px) {
   .body {
-    max-width: 1200px;
-    margin-top: 80px;
+    max-width: 960px;
+    margin-top: 64px;
 
     p {
-      font-size: 5vw;
-      padding-right: 2vw;
+      font-size: 3.6vw;
+      padding-right: 1.5vw;
     }
   }
 }

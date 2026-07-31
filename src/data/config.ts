@@ -35,7 +35,7 @@ const config = {
   },
   social: {
     twitter: "https://x.com/GKhut91838",
-    linkedin: "https://www.linkedin.com/in/gunjan-khut/",
+    linkedin: "https://www.linkedin.com/in/gunjankhut/",
     instagram: "https://instagram.com/gunjankhut",
     facebook: "https://github.com/gkkhut",
     github: "https://github.com/gkkhut",

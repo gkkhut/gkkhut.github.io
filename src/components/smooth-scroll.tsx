@@ -31,6 +31,18 @@ function SmoothScroll({ children, isInsideModal = false }: LenisProps) {
     return () => gsap.ticker.remove(raf);
   }, [lenis]);
 
+  // Deep links (/#contact) and cross-route menu nav land with a hash but Lenis
+  // does not follow native anchors — scroll once when the instance is ready.
+  useEffect(() => {
+    if (!lenis) return;
+    const hash = window.location.hash;
+    if (!hash) return;
+    const id = requestAnimationFrame(() => {
+      lenis.scrollTo(hash, { force: true });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [lenis]);
+
   return (
     <ReactLenis
       root
