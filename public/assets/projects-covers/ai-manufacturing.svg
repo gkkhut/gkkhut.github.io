@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 360 240">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="240" fill="url(#bg)"/>
+  <circle cx="300" cy="40" r="90" fill="#38bdf8" opacity="0.08"/>
+  <circle cx="40" cy="200" r="70" fill="#64748b" opacity="0.12"/>
+  <g fill="none" stroke="#94a3b8" stroke-width="1.8" opacity="0.4">
+        <path d="M120 160c0-40 30-70 60-70s40 20 40 20 10-20 40-20 60 30 60 70-25 70-55 70c-15 0-25-10-45-10s-30 10-45 10c-30 0-55-30-55-70z"/>
+        <path d="M180 100v100M150 140h60"/></g>
+  <text x="28" y="210" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="0.08em">AI / ML</text>
+</svg>
