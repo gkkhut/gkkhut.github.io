@@ -1,11 +1,9 @@
 # Gunjan Khut — Portfolio
 
-Interactive 3D portfolio for **Gunjan Khut**, Senior Staff Robotics Controls Engineer.
+Interactive 3D portfolio for **Gunjan Khut**.
 
 **Live site:** [https://gkkhut.github.io/](https://gkkhut.github.io/)  
 **Repo:** [gkkhut/gkkhut.github.io](https://github.com/gkkhut/gkkhut.github.io)
-
-Based on the open-source [Naresh-Khatri/3d-portfolio](https://github.com/Naresh-Khatri/3d-portfolio) template (MIT). Credit appreciated.
 
 ## Features
 
