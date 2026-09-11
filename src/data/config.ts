@@ -31,7 +31,7 @@ const config = {
   githubRepo: "gkkhut.github.io",
 
   get ogImg() {
-    return this.site + "/assets/seo/og-image.png";
+    return this.site + "/assets/seo/og-image.png?v=20260910";
   },
   social: {
     twitter: "https://x.com/GKhut91838",

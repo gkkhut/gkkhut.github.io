@@ -39,9 +39,9 @@ export const metadata: Metadata = {
     images: [
       {
         url: config.ogImg,
-        width: 800,
-        height: 600,
-        alt: "Portfolio preview",
+        width: 1200,
+        height: 630,
+        alt: "Gunjan Khut | Senior Staff Controls Engineer",
       },
     ],
     type: "website",
